@@ -53,3 +53,11 @@ export interface AuthState {
   role: "referring" | "specialist";
   specialty: string | null;
 }
+
+export interface Appointment {
+  time: string;
+  patientName: string;
+  patientId: number;
+  type: string;
+  duration: string;
+}

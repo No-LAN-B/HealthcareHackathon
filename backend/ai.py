@@ -5,7 +5,10 @@ import os
 
 import anthropic
 
-client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
+_api_key = os.getenv("ANTHROPIC_API_KEY", "")
+client: anthropic.Anthropic | None = None
+if _api_key:
+    client = anthropic.Anthropic(api_key=_api_key)
 
 MODEL = "claude-sonnet-4-20250514"
 
@@ -43,6 +46,14 @@ Return ONLY the referral note text, no JSON, no markdown formatting, no preamble
 
 def extract_from_transcript(transcript: str) -> dict:
     """Extract clinical summary, specialist type, urgency, and key symptoms from a transcript."""
+    if not client:
+        print("ANTHROPIC_API_KEY not set — returning fallback extraction")
+        return {
+            "clinical_summary": "API key not configured. Please set ANTHROPIC_API_KEY in backend/.env",
+            "suggested_specialist": "general_practitioner",
+            "suggested_urgency": 5,
+            "key_symptoms": [],
+        }
     try:
         message = client.messages.create(
             model=MODEL,
@@ -77,6 +88,8 @@ def finalize_referral_note(
     urgency: int,
 ) -> str:
     """Generate a formal clinical referral note from transcript and doctor edits."""
+    if not client:
+        return clinical_note
     try:
         user_content = f"""Transcript: {transcript}
 

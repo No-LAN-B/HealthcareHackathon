@@ -19,7 +19,10 @@
       "Bash(curl -s \"http://localhost:8000/patients/4/thread\")",
       "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(f''''{len\\(data\\)} entries''''\\); [print\\(f''''  {e[\"\"entry_type\"\"]} by {e[\"\"doctor_name\"\"]}''''\\) for e in data]\")",
       "Bash(npx vite:*)",
-      "Bash(curl -s http://localhost:8000/login -X POST -H \"Content-Type: application/json\" -d '{\"\"username\"\":\"\"Dr. Marcus Webb\"\"}')"
+      "Bash(curl -s http://localhost:8000/login -X POST -H \"Content-Type: application/json\" -d '{\"\"username\"\":\"\"Dr. Marcus Webb\"\"}')",
+      "Bash(tasklist)",
+      "Bash(taskkill //PID 18196 //F)",
+      "Bash(taskkill //PID 4936 //F)"
     ]
   }
 }

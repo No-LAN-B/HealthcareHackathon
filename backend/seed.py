@@ -1,8 +1,14 @@
-"""Seed the database with mock data for MedRelay demo."""
+"""Seed the database with mock data for MedRelay demo.
 
+Loads 2000 real patients from patients.csv and adds demo-critical patients
+with stable IDs so the frontend schedule references work.
+"""
+
+import csv
 import os
 import sys
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -13,6 +19,13 @@ os.makedirs("data", exist_ok=True)
 
 from database import Base, engine, SessionLocal
 from models import Doctor, Patient, Referral, CareThreadEntry
+
+CSV_PATH = Path(__file__).parent / "patients.csv"
+
+
+def _generate_email(first: str, last: str) -> str:
+    """Generate a plausible email from patient names."""
+    return f"{first.lower().replace(' ', '')}.{last.lower().replace(' ', '')}@email.ca"
 
 
 def seed():
@@ -47,8 +60,8 @@ def seed():
     dr_torres = specialist_doctors[1]
     dr_kim = specialist_doctors[2]
 
-    # --- Patients ---
-    patients = [
+    # --- Demo-critical patients (IDs 1-12, referenced by frontend schedule) ---
+    demo_patients = [
         Patient(health_card_id="1234-567-890-01", name="Marcus Bellamy", email="marcus.bellamy@email.ca", date_of_birth="1988-03-14"),
         Patient(health_card_id="2345-678-901-02", name="Anika Sharma", email="anika.sharma@email.ca", date_of_birth="1975-07-22"),
         Patient(health_card_id="3456-789-012-03", name="Jean-Luc Tremblay", email="jl.tremblay@email.ca", date_of_birth="1962-11-05"),
@@ -62,8 +75,29 @@ def seed():
         Patient(health_card_id="1122-334-455-11", name="Tyler Chicken", email="tyler.chicken@email.ca", date_of_birth="1985-05-16"),
         Patient(health_card_id="2233-445-566-12", name="Chloe Beaumont", email="chloe.beaumont@email.ca", date_of_birth="1998-10-07"),
     ]
-    db.add_all(patients)
+    db.add_all(demo_patients)
     db.flush()
+    # demo_patients[0].id == 1 (Marcus Bellamy), etc.
+    patients = demo_patients
+
+    # --- Bulk-load patients from CSV ---
+    if CSV_PATH.exists():
+        with open(CSV_PATH, newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            csv_patients = []
+            for row in reader:
+                name = f"{row['first_name']} {row['last_name']}"
+                csv_patients.append(Patient(
+                    health_card_id=row["insurance_number"],
+                    name=name,
+                    email=_generate_email(row["first_name"], row["last_name"]),
+                    date_of_birth=row["date_of_birth"],
+                ))
+            db.add_all(csv_patients)
+            db.flush()
+            print(f"Loaded {len(csv_patients)} patients from CSV")
+    else:
+        print(f"Warning: {CSV_PATH} not found — using demo patients only")
 
     now = datetime.now(timezone.utc)
 
