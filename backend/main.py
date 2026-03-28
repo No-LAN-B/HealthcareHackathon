@@ -28,6 +28,7 @@ app.add_middleware(
         "http://localhost:5173",
         "http://localhost:3000",
         "http://frontend:3000",
+        "https://hh-frontend.onrender.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
