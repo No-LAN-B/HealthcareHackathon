@@ -6,12 +6,17 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     port: 5173,
+    allowedHosts: ["hh-frontend.onrender.com"],
     proxy: {
       "/api": {
-        target: "http://localhost:8000",
+        target: "https://hh-backend-dxl9.onrender.com",
         changeOrigin: true,
+        secure: true,
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
     },
+  },
+  preview: {
+    allowedHosts: ["hh-frontend.onrender.com"],
   },
 });
