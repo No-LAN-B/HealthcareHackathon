@@ -2,10 +2,8 @@
 
 import logging
 import os
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.utils import parseaddr
+
+import resend
 
 logger = logging.getLogger(__name__)
 
@@ -22,27 +20,17 @@ def send_referral_accepted_email(
     If BOOKING_NOTIFY_EMAIL is set, the message is delivered there (demo / testing).
     Otherwise it goes to the patient's email on file.
     """
-    host = os.getenv("EMAIL_HOST", "")
-    port = int(os.getenv("EMAIL_PORT", "587"))
-    user = os.getenv("EMAIL_USER", "")
-    password = os.getenv("EMAIL_PASS", "")
-
-    if not all([host, user, password]):
-        logger.warning("Email not configured (set EMAIL_HOST, EMAIL_USER, EMAIL_PASS) — skipping notification")
+    api_key = os.getenv("EMAIL_PASS") or os.getenv("RESEND_API_KEY", "")
+    if not api_key:
+        logger.warning("EMAIL_PASS (Resend API key) not set — skipping email notification")
         return False
 
-    # SMTP login user is often "resend"; From must be a real address Resend accepts (see EMAIL_FROM).
+    resend.api_key = api_key
+
     from_header = (os.getenv("EMAIL_FROM") or "MedRelay <onboarding@resend.dev>").strip()
-    _, envelope_from = parseaddr(from_header)
-    if not envelope_from or "@" not in envelope_from:
-        logger.error(
-            "EMAIL_FROM must be a valid address (e.g. MedRelay <onboarding@resend.dev>); got %r",
-            from_header,
-        )
-        return False
-
     notify_override = os.getenv("BOOKING_NOTIFY_EMAIL", "").strip()
     recipient = notify_override or patient_email
+
     demo_banner = ""
     if notify_override:
         demo_banner = f"""
@@ -53,9 +41,7 @@ def send_referral_accepted_email(
         """
 
     specialty_display = specialty.replace("_", " ").title()
-    booking_link = booking_url
 
-    subject = "MedRelay: Book Your Appointment"
     html_body = f"""
     <html>
     <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -68,7 +54,7 @@ def send_referral_accepted_email(
             <p>Your referral has been accepted by <strong>{specialist_name}</strong> ({specialty_display}).</p>
 
             <div style="margin: 24px 0; text-align: center;">
-                <a href="{booking_link}"
+                <a href="{booking_url}"
                    style="display: inline-block; padding: 14px 32px; background: #0d9488; color: white;
                           text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px;">
                     Book Your Appointment
@@ -92,24 +78,19 @@ def send_referral_accepted_email(
     </html>
     """
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = from_header
-    msg["To"] = recipient
-    msg.attach(MIMEText(html_body, "html"))
-
     try:
-        with smtplib.SMTP(host, port) as server:
-            server.starttls()
-            server.login(user, password)
-            server.sendmail(envelope_from, [recipient], msg.as_string())
+        resend.Emails.send({
+            "from": from_header,
+            "to": [recipient],
+            "subject": "MedRelay: Book Your Appointment",
+            "html": html_body,
+        })
         logger.info(
-            "Booking email accepted by SMTP for %s (from=%s)%s",
+            "Booking email sent via Resend API to %s%s",
             recipient,
-            envelope_from,
             f"; demo override (patient was {patient_email})" if notify_override else "",
         )
         return True
     except Exception as e:
-        logger.exception("SMTP failed sending booking email to %s: %s", recipient, e)
+        logger.exception("Resend API failed sending booking email to %s: %s", recipient, e)
         return False
